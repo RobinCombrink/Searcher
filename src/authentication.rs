@@ -19,7 +19,12 @@ pub struct GitHubCliAuthentication {
 
 impl GitHubCliAuthentication {
     fn get_token(shell: &str) -> SecretString {
-        let args = vec!["gh".to_string(), "auth".to_string(), "token".to_string()];
+        let args = vec![
+            "/C".into(),
+            "gh".to_string(),
+            "auth".to_string(),
+            "token".to_string(),
+        ];
         let result: Result<Output> = Command::new(shell).args(&args).output().with_context(|| {
             format!(
                 "Something went wrong executing the command: {:#?} in the program {}",
