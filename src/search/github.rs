@@ -1,29 +1,9 @@
 use std::{fs, path::PathBuf};
 
 use anyhow::{Context, Result};
-use git_cloner::github::{GitCloner, GitRepository};
+use git_cloner::github::{GitClone, GitCloner};
 use git_cloner::github_authentication::authentication::Authentication;
 use octocrab::models::Repository;
-
-struct GitClone {
-    owner: String,
-    repo: String,
-}
-
-impl GitClone {
-    fn new(owner: String, repo: String) -> Self {
-        Self { owner, repo }
-    }
-}
-
-impl GitRepository for GitClone {
-    fn get_owner(&self) -> String {
-        self.owner.clone()
-    }
-    fn get_repository_name(&self) -> String {
-        self.repo.clone()
-    }
-}
 
 #[derive(Debug)]
 pub struct GithubSearcher<T: Authentication> {
