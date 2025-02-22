@@ -78,7 +78,7 @@ async fn main() -> Result<()> {
 
 fn setup_logging() {
     env_logger::builder()
-        .filter_level(log::LevelFilter::Debug)
+        .filter_level(log::LevelFilter::Info)
         .parse_default_env()
         .format(|buf, record| {
             writeln!(
