@@ -13,7 +13,7 @@ use {
         searcher::{BinaryDetection, SearcherBuilder},
     },
     log::error,
-    std::{error::Error, ffi::OsString, io::IsTerminal},
+    std::{ffi::OsString, io::IsTerminal},
     termcolor::ColorChoice,
     walkdir::WalkDir,
 };
@@ -44,7 +44,7 @@ impl<T: Authentication> Searcher<T> {
 
 impl<T: Authentication> Searcher<T> {
     //Original inspiration: https://github.com/BurntSushi/ripgrep/blob/master/crates/grep/examples/simplegrep.rs
-    pub fn search(&self, paths: &[OsString]) -> Result<(), Box<dyn Error>> {
+    pub fn search(&self, paths: &[OsString]) -> Result<()> {
         let mut searcher = SearcherBuilder::new()
             .binary_detection(BinaryDetection::quit(b'\x00'))
             .build();

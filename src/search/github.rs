@@ -3,7 +3,6 @@ use std::{fs, path::PathBuf};
 use anyhow::{Context, Result};
 use git_cloner::github::{GitCloner, GitRepository};
 use git_cloner::github_authentication::authentication::Authentication;
-use log::info;
 use octocrab::models::Repository;
 
 struct GitClone {
@@ -47,37 +46,20 @@ impl<T: Authentication> GithubSearcher<T> {
         Self { cloner, owner }
     }
 
-    pub async fn update_repositories(
-        &self,
-        repo_prefix: &str,
-    ) -> Result<()> {
+    pub async fn update_repositories(&self, repo_prefix: &str) -> Result<Vec<Result<()>>> {
         let repositories = Self::get_repos(&self.owner)
             .await
             .with_context(|| "Failed to clone and fetch all repositories")?;
 
-        let filtered_repositories = repositories
+        let git_clones = repositories
             .iter()
             .filter(|repo| repo.name.starts_with(repo_prefix))
-            .collect::<Vec<&Repository>>();
-
-        self.clone_or_fetch_repositories(&filtered_repositories)
-            .await
-    }
-
-    async fn clone_or_fetch_repositories(
-        &self,
-        repositories: &[&Repository],
-    ) -> Result<()> {
-        info!("Updating {} repo(s)", &repositories.len());
-
-        let git_clones = repositories
+            .collect::<Vec<&Repository>>()
             .into_iter()
             .map(|repo| GitClone::new(self.owner.clone(), repo.name.clone()))
             .collect();
 
-        self.cloner.clone_or_fetch_repositories(git_clones).await;
-
-        Ok(())
+        Ok(self.cloner.clone_or_fetch_repositories(git_clones).await)
     }
 
     async fn get_repos(owner: &str) -> Result<Vec<Repository>> {

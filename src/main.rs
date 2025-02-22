@@ -3,7 +3,6 @@ use std::fs;
 use crate::search::{github::GithubSearcher, Searcher};
 use anyhow::Result;
 use git_cloner::github_authentication::authentication::GitHubCliAuthentication;
-use log::{error, info};
 use std::io::Write;
 
 use {
@@ -45,7 +44,7 @@ async fn main() -> Result<()> {
         //TODO: Extract to CLI argument
         let args: CLIArguments = CLIArguments::parse();
 
-        setup_logging(args.min_log_level);
+        setup_logging();
         trace!("Logging setup successful");
 
         let authentication = GitHubCliAuthentication::new(args.github_username)?;
@@ -63,13 +62,14 @@ async fn main() -> Result<()> {
 
         let _ = fs::create_dir_all(path.join(github_directory));
 
-        searcher.github.update_repositories(&args.prefix).await?;
+        searcher
+            .github
+            .update_repositories(&args.prefix)
+            .await?
+            .into_iter()
+            .collect::<Result<Vec<()>>>()?;
 
-        // TODO Extract to Search module
-        match searcher.search(&[path.as_os_str().to_owned()]) {
-            Ok(()) => info!("Search successful"),
-            Err(e) => error!("Search unsuccessful: {e}"),
-        };
+        searcher.search(&[path.as_os_str().to_owned()])?;
     }
     let elapsed = now.elapsed();
     println!("Elapsed: {:.2?}", elapsed);
