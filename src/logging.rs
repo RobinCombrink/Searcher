@@ -1,7 +1,6 @@
-use std::{fmt, process};
+use std::fmt;
 
 use clap::ValueEnum;
-use log::error;
 
 #[derive(Debug, Clone)]
 pub enum LevelFilter {
@@ -49,9 +48,4 @@ impl From<LevelFilter> for log::LevelFilter {
             LevelFilter::Trace => log::LevelFilter::Trace,
         }
     }
-}
-
-pub fn print_error_and_exit(message: &str) -> ! {
-    error!("{message}");
-    process::exit(1);
 }

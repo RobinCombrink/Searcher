@@ -65,10 +65,7 @@ async fn main() -> Result<()> {
 
         let _ = fs::create_dir_all(path.join(github_directory));
 
-        searcher
-            .github
-            .update_repositories(github_directory.into(), &args.prefix)
-            .await?;
+        searcher.github.update_repositories(&args.prefix).await?;
 
         // TODO Extract to Search module
         match searcher.search(&[path.as_os_str().to_owned()]) {
