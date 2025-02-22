@@ -10,7 +10,6 @@ use {
     clap::Parser,
     env_logger,
     log::trace,
-    octocrab::{self, Error as OctoError},
     std::{ffi::OsString, path::Path},
 };
 pub mod authentication;
@@ -25,12 +24,14 @@ const DEFAULT_GITHUB_REPOSITORIES_DIRECTORY: &str = "github";
 struct CLIArguments {
     #[clap(short = 'p', long = "prefix", default_value = "")]
     prefix: String,
-    #[clap(short = 'o', long = "owner", default_value = "RobinCombrink")]
+    #[clap(short = 'o', long = "owner", default_value = "UniversalSearcher")]
     owner: String,
     #[clap(short = 's', long = "search-term", default_value = "main")]
     search_term: OsString,
     #[clap(short = 'i', long = "case-insensitve", num_args = 0)]
     ignore_case: bool,
+    #[clap(short = 'u', long = "github-username", default_value = "RobinCombrink")]
+    github_username: String,
     #[clap(short = 'l', long = "log-level", value_enum, default_value_t=logging::LevelFilter::Info)]
     min_log_level: logging::LevelFilter,
 }
@@ -50,7 +51,7 @@ async fn main() -> Result<()> {
         setup_logging(args.min_log_level);
         trace!("Logging setup successful");
 
-        let authentication = GitHubCliAuthentication::default();
+        let authentication = GitHubCliAuthentication::new(args.github_username);
 
         let searcher = Searcher::new(
             GithubSearcher::new(
@@ -68,7 +69,7 @@ async fn main() -> Result<()> {
         searcher
             .github
             .update_repositories(github_directory.into(), &args.prefix)
-            .await;
+            .await?;
 
         // TODO Extract to Search module
         match searcher.search(&[path.as_os_str().to_owned()]) {
@@ -91,7 +92,6 @@ fn setup_logging(level_filter: logging::LevelFilter) {
                 "{}:{} {} [{}] - {}",
                 record.file().unwrap_or("unknown"),
                 record.line().unwrap_or(0),
-                //TODO: Date and time?
                 chrono::Local::now().format("%H:%M:%S"),
                 record.level(),
                 record.args()

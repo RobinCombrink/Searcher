@@ -4,14 +4,12 @@ use std::process::exit;
 use std::sync::Arc;
 use std::{fs, path::PathBuf};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use futures::{stream, StreamExt};
 use git2::build::RepoBuilder;
 use git2::{BranchType, Cred, FetchOptions, RemoteCallbacks};
 use indicatif::ProgressBar;
 use log::{debug, error, info};
-use oauth2::basic::BasicTokenType;
-use oauth2::{EmptyExtraTokenFields, StandardTokenResponse, TokenResponse};
 use octocrab::models::Repository;
 use octocrab::Octocrab;
 use secrecy::{ExposeSecret, SecretString};
@@ -21,7 +19,6 @@ use url::Url;
 
 use crate::authentication::Authentication;
 use crate::logging;
-use crate::OctoError;
 
 const REMOTE_NAME: &str = "origin";
 
@@ -58,29 +55,22 @@ impl<T: Authentication> GithubSearcher<T> {
         };
     }
 
-    pub async fn update_repositories(&self, github_directory: PathBuf, repo_prefix: &str) {
-        let repositories = Self::get_repos(&self.owner).await;
-        match repositories {
-            Ok(repositories) => {
-                let filtered_repositories = repositories
-                    .iter()
-                    .filter(|repo| repo.name.starts_with(repo_prefix))
-                    .collect::<Vec<&Repository>>();
-                //TODO: Throw error on zero repos
-                let result = self
-                    .clone_or_fetch_repositories(
-                        &github_directory,
-                        &filtered_repositories,
-                        &self.base_path,
-                    )
-                    .await;
-                match result {
-                    Ok(()) => info!("Successfully cloned and fetched all repositories"),
-                    Err(e) => error!("Failed to clone and fetch all repositoies{e}"),
-                }
-            }
-            Err(e) => error!("Failed to fetch the repositories: {e}"),
-        }
+    pub async fn update_repositories(
+        &self,
+        github_directory: PathBuf,
+        repo_prefix: &str,
+    ) -> Result<()> {
+        let repositories = Self::get_repos(&self.owner)
+            .await
+            .with_context(|| "Failed to clone and fetch all repositories")?;
+
+        let filtered_repositories = repositories
+            .iter()
+            .filter(|repo| repo.name.starts_with(repo_prefix))
+            .collect::<Vec<&Repository>>();
+
+        self.clone_or_fetch_repositories(&github_directory, &filtered_repositories, &self.base_path)
+            .await
     }
 
     async fn clone_or_fetch_repositories(
@@ -103,7 +93,7 @@ impl<T: Authentication> GithubSearcher<T> {
                 let _permit = semaphore.acquire_owned().await.unwrap();
                 match git2::Repository::open(&local_path) {
                     Ok(local_repo) => {
-                        Self::fetch_repo(
+                        self.fetch_repository(
                             local_repo,
                             repo.name.to_owned(),
                             local_path.to_owned(),
@@ -112,7 +102,7 @@ impl<T: Authentication> GithubSearcher<T> {
                         .await
                     }
                     Err(_) => {
-                        Self::clone_repo(
+                        self.clone_repository(
                             repo.name.to_owned(),
                             repo.html_url.to_owned(),
                             local_path.to_owned(),
@@ -147,7 +137,8 @@ impl<T: Authentication> GithubSearcher<T> {
         Ok(())
     }
 
-    fn fetch_repo(
+    fn fetch_repository(
+        &self,
         repo: git2::Repository,
         name: String,
         path: PathBuf,
@@ -175,8 +166,10 @@ impl<T: Authentication> GithubSearcher<T> {
                 }
             })
             .collect::<Vec<String>>();
+
+        let username = self.authentication.get_username().clone();
         tokio::task::spawn_blocking(move || {
-            Self::fetch_repo_sync(filtered_branches, path, repo, token)
+            Self::fetch_repo_sync(filtered_branches, path, repo, username, token)
         })
     }
 
@@ -184,6 +177,7 @@ impl<T: Authentication> GithubSearcher<T> {
         filtered_branches: Vec<String>,
         path: PathBuf,
         repo: git2::Repository,
+        username: String,
         token: SecretString,
     ) -> Result<()> {
         let mut remote = repo.find_remote(REMOTE_NAME)?;
@@ -192,7 +186,7 @@ impl<T: Authentication> GithubSearcher<T> {
             if let Some(p) = path.to_str() {
                 if path.exists() {
                     let mut fetch_options =
-                        Self::create_repository_fetch_options(&token, p.to_owned());
+                        Self::create_repository_fetch_options(&token, p.to_owned(), &username);
 
                     match remote.fetch(&[branch], Some(&mut fetch_options), None) {
                         Ok(_) => info!("Successfully fetched: {p}/{branch}",),
@@ -214,6 +208,7 @@ impl<T: Authentication> GithubSearcher<T> {
     fn create_repository_fetch_options<'a>(
         token: &'a SecretString,
         name: String,
+        username: &'a str,
     ) -> FetchOptions<'a> {
         let pb = ProgressBar::new(100);
 
@@ -237,7 +232,10 @@ impl<T: Authentication> GithubSearcher<T> {
         });
 
         callbacks.credentials(|_url, username_from_url, _allowed_types| {
-            Cred::userpass_plaintext(username_from_url.unwrap(), token.expose_secret())
+            Cred::userpass_plaintext(
+                username_from_url.unwrap_or_else(|| username),
+                token.expose_secret(),
+            )
         });
 
         let mut fetch_options = FetchOptions::new();
@@ -247,13 +245,15 @@ impl<T: Authentication> GithubSearcher<T> {
         return fetch_options;
     }
 
-    fn clone_repo(
+    fn clone_repository(
+        &self,
         name: String,
         url: Option<Url>,
         path: PathBuf,
         token: SecretString,
     ) -> JoinHandle<Result<()>> {
-        tokio::task::spawn_blocking(move || Self::clone_repo_sync(name, url, path, token))
+        let username = self.authentication.get_username().clone();
+        tokio::task::spawn_blocking(move || Self::clone_repo_sync(name, url, path, token, username))
     }
 
     fn clone_repo_sync(
@@ -261,11 +261,12 @@ impl<T: Authentication> GithubSearcher<T> {
         url: Option<Url>,
         path: PathBuf,
         token: SecretString,
+        username: String,
     ) -> Result<()> {
         info!("Cloning {name} into {}", &path.display());
 
         let _ = fs::create_dir_all(&path);
-        let fetch_options = Self::create_repository_fetch_options(&token, name);
+        let fetch_options = Self::create_repository_fetch_options(&token, name, &username);
         match path.to_str() {
             Some(path_str) => match url {
                 Some(url) => match RepoBuilder::new()
@@ -292,9 +293,14 @@ impl<T: Authentication> GithubSearcher<T> {
         }
     }
 
-    async fn get_repos(owner: &str) -> Result<Vec<Repository>, OctoError> {
+    async fn get_repos(owner: &str) -> Result<Vec<Repository>> {
         let octocrab_instance = octocrab::instance();
-        let repo_page = octocrab_instance.orgs(owner).list_repos().send().await?;
+        let repo_page = octocrab_instance
+            .orgs(owner)
+            .list_repos()
+            .send()
+            .await
+            .with_context(|| format!("Failed to list repositories for organisation: {owner}"))?;
         let results = octocrab_instance.all_pages(repo_page).await?;
         return Ok(results);
     }

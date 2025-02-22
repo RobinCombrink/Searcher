@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use anyhow::{Context, Result};
 use log::error;
 use secrecy::SecretString;
@@ -11,13 +10,21 @@ const DEFAULT_SHELL: &str = "cmd";
 
 pub trait Authentication {
     fn get_token(&self) -> SecretString;
+    fn get_username(&self) -> String;
 }
 
 pub struct GitHubCliAuthentication {
     pub(crate) token: LazyLock<SecretString>,
+    pub(crate) username: String,
 }
 
 impl GitHubCliAuthentication {
+    pub fn new(username: String) -> Self {
+        Self {
+            token: LazyLock::new(|| Self::get_token(DEFAULT_SHELL)),
+            username,
+        }
+    }
     fn get_token(shell: &str) -> SecretString {
         let args = vec![
             "/C".into(),
@@ -47,16 +54,12 @@ impl GitHubCliAuthentication {
     }
 }
 
-impl Default for GitHubCliAuthentication {
-    fn default() -> Self {
-        Self {
-            token: LazyLock::new(|| Self::get_token(DEFAULT_SHELL)),
-        }
-    }
-}
-
 impl Authentication for GitHubCliAuthentication {
     fn get_token(&self) -> SecretString {
         (*self.token).clone()
+    }
+
+    fn get_username(&self) -> String {
+        self.username.clone()
     }
 }
