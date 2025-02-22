@@ -1,9 +1,8 @@
-use std::{fmt::Display, fs};
+use std::fs;
 
 use crate::search::{github::GithubSearcher, Searcher};
+use anyhow::Result;
 use authentication::GitHubCliAuthentication;
-use clap::ValueEnum;
-use grep::cli;
 use log::{error, info};
 use std::io::Write;
 
@@ -37,7 +36,7 @@ struct CLIArguments {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
     use std::time::Instant;
     let now = Instant::now();
     {
@@ -53,12 +52,16 @@ async fn main() {
 
         let authentication = GitHubCliAuthentication::default();
 
-        let searcher = Searcher::new(GithubSearcher::new(
-            authentication,
-            path.to_path_buf(),
-            github_directory.into(),
-            args.owner,
-        ));
+        let searcher = Searcher::new(
+            GithubSearcher::new(
+                authentication,
+                path.to_path_buf(),
+                github_directory.into(),
+                args.owner,
+            ),
+            args.ignore_case,
+            &args.search_term,
+        )?;
 
         let _ = fs::create_dir_all(path.join(github_directory));
 
@@ -68,18 +71,14 @@ async fn main() {
             .await;
 
         // TODO Extract to Search module
-        match cli::pattern_from_os(&args.search_term) {
-            Ok(p) => match search::search(p, &[path.as_os_str().to_owned()], args.ignore_case) {
-                Ok(()) => info!("Search successful"),
-                Err(e) => error!("Search unsuccessful: {e}"),
-            },
-            Err(e) => logging::print_error_and_exit(&format!(
-                "The provided search pattern was not valid: {e}"
-            )),
+        match searcher.search(&[path.as_os_str().to_owned()]) {
+            Ok(()) => info!("Search successful"),
+            Err(e) => error!("Search unsuccessful: {e}"),
         };
     }
     let elapsed = now.elapsed();
     println!("Elapsed: {:.2?}", elapsed);
+    Ok(())
 }
 
 fn setup_logging(level_filter: logging::LevelFilter) {
