@@ -12,7 +12,7 @@ use {
     log::trace,
     std::{ffi::OsString, path::Path},
 };
-mod logging;
+
 mod search;
 
 const DEFAULT_FILES_TO_SEARCH_DIRECTORY: &str = "FilesToSearch";
@@ -31,8 +31,6 @@ struct CLIArguments {
     ignore_case: bool,
     #[clap(short = 'u', long = "github-username", default_value = "RobinCombrink")]
     github_username: String,
-    #[clap(short = 'l', long = "log-level", value_enum, default_value_t=logging::LevelFilter::Info)]
-    min_log_level: logging::LevelFilter,
 }
 
 #[tokio::main]
@@ -78,9 +76,9 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn setup_logging(level_filter: logging::LevelFilter) {
+fn setup_logging() {
     env_logger::builder()
-        .filter_level(level_filter.into())
+        .filter_level(log::LevelFilter::Debug)
         .parse_default_env()
         .format(|buf, record| {
             writeln!(
