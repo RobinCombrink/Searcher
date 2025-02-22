@@ -37,10 +37,8 @@ impl<T: Authentication> Searcher<T> {
             .line_terminator(Some(b'\n'))
             .case_insensitive(case_insensitive)
             .build(pattern)?;
-        return Ok(Self { github, matcher });
-    }
-    pub async fn initialise(&self) {
-        self.github.initialise_octocrab().await;
+
+        Ok(Self { github, matcher })
     }
 }
 

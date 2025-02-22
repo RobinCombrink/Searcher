@@ -34,22 +34,23 @@ pub struct GithubSearcher<T: Authentication> {
 }
 
 impl<T: Authentication> GithubSearcher<T> {
-    pub fn new(oauth_client: T, base_path: PathBuf, directory: PathBuf, owner: String) -> Self {
+    pub fn new(authentication: T, base_path: PathBuf, directory: PathBuf, owner: String) -> Self {
         let _ = fs::create_dir_all(base_path.join(&directory));
-
-        return Self {
+        let github = Self {
             directory,
             owner,
             base_path,
-            authentication: oauth_client,
+            authentication,
         };
+
+        github.initialise_octocrab();
+
+        github
     }
 
-    pub async fn initialise_octocrab(&self) {
-        match Octocrab::builder()
-            .personal_token(self.authentication.get_token().expose_secret().to_owned())
-            .build()
-        {
+    pub fn initialise_octocrab(&self) {
+        let token = self.authentication.get_token().expose_secret().to_owned();
+        match Octocrab::builder().personal_token(token).build() {
             Ok(instance) => octocrab::initialise(instance),
             Err(e) => logging::print_error_and_exit(&format!(
                 "Failed to build Octocrab instance - probably a bad token: {e}"
