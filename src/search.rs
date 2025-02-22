@@ -66,6 +66,9 @@ impl<T: Authentication> Searcher<T> {
                         continue;
                     }
                 };
+                if dir_entry.path().to_string_lossy().contains(".git") {
+                    continue;
+                }
                 if !dir_entry.file_type().is_file() {
                     continue;
                 }
