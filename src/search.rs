@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
-use crate::authentication::Authentication;
 use anyhow::Result;
+use git_cloner::github_authentication::authentication::Authentication;
 use grep::regex::{RegexMatcher, RegexMatcherBuilder};
 
 use self::github::GithubSearcher;

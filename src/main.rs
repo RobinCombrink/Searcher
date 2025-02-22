@@ -2,7 +2,7 @@ use std::fs;
 
 use crate::search::{github::GithubSearcher, Searcher};
 use anyhow::Result;
-use authentication::GitHubCliAuthentication;
+use git_cloner::github_authentication::authentication::GitHubCliAuthentication;
 use log::{error, info};
 use std::io::Write;
 
@@ -12,9 +12,8 @@ use {
     log::trace,
     std::{ffi::OsString, path::Path},
 };
-pub mod authentication;
-pub mod logging;
-pub mod search;
+mod logging;
+mod search;
 
 const DEFAULT_FILES_TO_SEARCH_DIRECTORY: &str = "FilesToSearch";
 const DEFAULT_GITHUB_REPOSITORIES_DIRECTORY: &str = "github";
@@ -51,7 +50,7 @@ async fn main() -> Result<()> {
         setup_logging(args.min_log_level);
         trace!("Logging setup successful");
 
-        let authentication = GitHubCliAuthentication::new(args.github_username);
+        let authentication = GitHubCliAuthentication::new(args.github_username)?;
 
         let searcher = Searcher::new(
             GithubSearcher::new(

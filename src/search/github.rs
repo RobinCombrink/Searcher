@@ -8,51 +8,39 @@ use anyhow::{anyhow, Context, Result};
 use futures::{stream, StreamExt};
 use git2::build::RepoBuilder;
 use git2::{BranchType, Cred, FetchOptions, RemoteCallbacks};
+use git_cloner::github::GitCloner;
+use git_cloner::github_authentication::authentication::Authentication;
 use indicatif::ProgressBar;
 use log::{debug, error, info};
 use octocrab::models::Repository;
-use octocrab::Octocrab;
 use secrecy::{ExposeSecret, SecretString};
 use tokio::sync::Semaphore;
 use tokio::task::JoinHandle;
 use url::Url;
 
-use crate::authentication::Authentication;
 use crate::logging;
 
 const REMOTE_NAME: &str = "origin";
 
 #[derive(Debug)]
 pub struct GithubSearcher<T: Authentication> {
-    pub directory: PathBuf,
+    pub cloner: GitCloner<T>,
     pub owner: String,
-    pub base_path: PathBuf,
-    pub authentication: T,
 }
 
 impl<T: Authentication> GithubSearcher<T> {
-    pub fn new(authentication: T, base_path: PathBuf, directory: PathBuf, owner: String) -> Self {
-        let _ = fs::create_dir_all(base_path.join(&directory));
-        let github = Self {
-            directory,
-            owner,
-            base_path,
+    pub fn new(
+        authentication: T,
+        repositories_directory_path: PathBuf,
+        directory: PathBuf,
+        owner: String,
+    ) -> Self {
+        let _ = fs::create_dir_all(repositories_directory_path.join(&directory));
+        let cloner = GitCloner::<T> {
             authentication,
+            directory_path: repositories_directory_path,
         };
-
-        github.initialise_octocrab();
-
-        github
-    }
-
-    pub fn initialise_octocrab(&self) {
-        let token = self.authentication.get_token().expose_secret().to_owned();
-        match Octocrab::builder().personal_token(token).build() {
-            Ok(instance) => octocrab::initialise(instance),
-            Err(e) => logging::print_error_and_exit(&format!(
-                "Failed to build Octocrab instance - probably a bad token: {e}"
-            )),
-        };
+        Self { cloner, owner }
     }
 
     pub async fn update_repositories(
@@ -69,7 +57,7 @@ impl<T: Authentication> GithubSearcher<T> {
             .filter(|repo| repo.name.starts_with(repo_prefix))
             .collect::<Vec<&Repository>>();
 
-        self.clone_or_fetch_repositories(&github_directory, &filtered_repositories, &self.base_path)
+        self.clone_or_fetch_repositories(&github_directory, &filtered_repositories)
             .await
     }
 
@@ -77,16 +65,19 @@ impl<T: Authentication> GithubSearcher<T> {
         &self,
         repositories_directory: &Path,
         repositories: &[&Repository],
-        path: &Path,
     ) -> Result<()> {
         info!("Updating {} repo(s)", &repositories.len());
 
         let semaphore = Arc::new(Semaphore::new(10));
 
-        let token = self.authentication.get_token();
+        let token = self.cloner.authentication.get_token();
 
         let futures = repositories.into_iter().map(|repo| {
-            let local_path = path.join(&repositories_directory).join(&repo.name);
+            let local_path = self
+                .cloner
+                .directory_path
+                .join(&repositories_directory)
+                .join(&repo.name);
             let semaphore = Arc::clone(&semaphore);
             let token = token.clone();
             async move {
@@ -167,7 +158,7 @@ impl<T: Authentication> GithubSearcher<T> {
             })
             .collect::<Vec<String>>();
 
-        let username = self.authentication.get_username().clone();
+        let username = self.cloner.authentication.get_username().clone();
         tokio::task::spawn_blocking(move || {
             Self::fetch_repo_sync(filtered_branches, path, repo, username, token)
         })
@@ -252,7 +243,7 @@ impl<T: Authentication> GithubSearcher<T> {
         path: PathBuf,
         token: SecretString,
     ) -> JoinHandle<Result<()>> {
-        let username = self.authentication.get_username().clone();
+        let username = self.cloner.authentication.get_username().clone();
         tokio::task::spawn_blocking(move || Self::clone_repo_sync(name, url, path, token, username))
     }
 
