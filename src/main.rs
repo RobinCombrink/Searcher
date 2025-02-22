@@ -22,9 +22,9 @@ const DEFAULT_GITHUB_REPOSITORIES_DIRECTORY: &str = "github";
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct CLIArguments {
-    #[clap(short = 'p', long = "prefix", default_value = "")]
+    #[clap(short = 'p', long = "prefix", default_value = "flutt")]
     prefix: String,
-    #[clap(short = 'o', long = "owner", default_value = "UniversalSearcher")]
+    #[clap(short = 'o', long = "owner", default_value = "flutter")]
     owner: String,
     #[clap(short = 's', long = "search-term", default_value = "main")]
     search_term: OsString,
