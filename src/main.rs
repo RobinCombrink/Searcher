@@ -51,8 +51,7 @@ async fn main() -> Result<()> {
 
         let github_searcher = GithubSearcher::new(
                 authentication,
-                path.to_path_buf(),
-                github_directory.into(),
+            path.to_path_buf().join(github_directory),
                 args.owner,
         )?;
 

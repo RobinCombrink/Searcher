@@ -16,10 +16,9 @@ impl<T: Authentication> GithubSearcher<T> {
     pub fn new(
         authentication: T,
         repositories_directory_path: PathBuf,
-        directory: PathBuf,
         owner: String,
     ) -> Result<Self> {
-        let _ = fs::create_dir_all(repositories_directory_path.join(&directory));
+        let _ = fs::create_dir_all(&repositories_directory_path);
         let cloner = GitCloner::new(authentication, repositories_directory_path)?;
         Ok(Self { cloner, owner })
     }
@@ -60,7 +59,7 @@ impl<T: Authentication> GithubSearcher<T> {
                             Some(branches) => branches.contains(&branch.name),
                             None => true,
                         })
-                        .map(|branch| GitClone::new(owner.clone(), name.clone(), branch.name))
+                        .map(|branch| GitClone::new(owner.clone(), name.clone(), Some(branch.name)))
                         .collect();
                     Ok(clones)
                 });
