@@ -49,16 +49,14 @@ async fn main() -> Result<()> {
 
         let authentication = GitHubCliAuthentication::new(args.github_username)?;
 
-        let searcher = Searcher::new(
-            GithubSearcher::new(
+        let github_searcher = GithubSearcher::new(
                 authentication,
                 path.to_path_buf(),
                 github_directory.into(),
                 args.owner,
-            ),
-            args.ignore_case,
-            &args.search_term,
         )?;
+
+        let searcher = Searcher::new(github_searcher, args.ignore_case, &args.search_term)?;
 
         let _ = fs::create_dir_all(path.join(github_directory));
 
@@ -69,7 +67,7 @@ async fn main() -> Result<()> {
             .into_iter()
             .collect::<Result<Vec<()>>>()?;
 
-        searcher.search(&[path.as_os_str().to_owned()])?;
+        // searcher.search(&[path.as_os_str().to_owned()])?;
     }
     let elapsed = now.elapsed();
     println!("Elapsed: {:.2?}", elapsed);

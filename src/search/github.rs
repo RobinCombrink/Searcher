@@ -18,13 +18,10 @@ impl<T: Authentication> GithubSearcher<T> {
         repositories_directory_path: PathBuf,
         directory: PathBuf,
         owner: String,
-    ) -> Self {
+    ) -> Result<Self> {
         let _ = fs::create_dir_all(repositories_directory_path.join(&directory));
-        let cloner = GitCloner::<T> {
-            authentication,
-            directory_path: repositories_directory_path,
-        };
-        Self { cloner, owner }
+        let cloner = GitCloner::new(authentication, repositories_directory_path)?;
+        Ok(Self { cloner, owner })
     }
 
     pub async fn update_repositories(&self, repo_prefix: &str) -> Result<Vec<Result<()>>> {
