@@ -5,7 +5,7 @@ use anyhow::Result;
 use git_cloner::github_authentication::authentication::GitHubCliAuthentication;
 use std::io::Write;
 
-use {clap::Parser, env_logger, log::trace, std::ffi::OsString};
+use {clap::Parser, env_logger, std::ffi::OsString};
 
 mod search;
 
@@ -13,19 +13,25 @@ const DEFAULT_FILES_TO_SEARCH_DIRECTORY: &str = "FilesToSearch";
 const DEFAULT_GITHUB_REPOSITORIES_DIRECTORY: &str = "github";
 
 #[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[command(
+    author,
+    version,
+    about = "Quickly search through a number of repositories hosted on github"
+)]
 struct CLIArguments {
-    #[clap(short = 'p', long = "prefix", default_value = "flutter_")]
-    prefix: String,
-    #[clap(short = 'o', long = "owner", default_value = "flutter")]
-    owner: String,
-    #[clap(short = 's', long = "search-term", default_value = "main")]
-    search_term: OsString,
-    #[clap(short = 'i', long = "case-insensitve", num_args = 0)]
+    #[clap(short = 'p', long, default_value = "flutter_")]
+    repository_filter_prefix: String,
+    #[clap(short = 'o', long, default_value = "flutter")]
+    github_organisation: String,
+    #[clap(short = 's', long, default_value = "main")]
+    search_pattern: OsString,
+    #[clap(short = 'i', long, num_args = 0, default_value_t = true)]
     ignore_case: bool,
-    #[clap(short = 'u', long = "github-username", default_value = "RobinCombrink")]
+    #[clap(short = 'u', long, default_value = "RobinCombrink")]
     github_username: String,
-    #[clap(short = 'l', long = "local-search-directory", default_value = DEFAULT_FILES_TO_SEARCH_DIRECTORY)]
+    #[clap(short = 'b', long, value_delimiter = ',', default_value = None)]
+    branches: Vec<String>,
+    #[clap(short = 'l', long, default_value = DEFAULT_FILES_TO_SEARCH_DIRECTORY)]
     local_search_directory: PathBuf,
 }
 
@@ -44,18 +50,19 @@ async fn main() -> Result<()> {
     let github_updater = GithubSearcher::new(
         authentication,
         local_search_directory_github.clone(),
-        args.owner,
+        args.branches,
+        args.github_organisation,
     )?;
 
     let _ = fs::create_dir_all(local_search_directory_github.clone());
 
     github_updater
-        .update_repositories(&args.prefix)
+        .update_repositories(&args.repository_filter_prefix)
         .await?
         .into_iter()
         .collect::<Result<Vec<()>>>()?;
 
-    let searcher = Searcher::new(args.ignore_case, &args.search_term)?;
+    let searcher = Searcher::new(args.ignore_case, &args.search_pattern)?;
 
     searcher.search(&[local_search_directory_github.as_os_str().to_owned()])
 }
