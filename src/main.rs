@@ -1,16 +1,11 @@
-use std::fs;
+use std::{fs, path::PathBuf};
 
 use crate::search::{github::GithubSearcher, Searcher};
 use anyhow::Result;
 use git_cloner::github_authentication::authentication::GitHubCliAuthentication;
 use std::io::Write;
 
-use {
-    clap::Parser,
-    env_logger,
-    log::trace,
-    std::{ffi::OsString, path::Path},
-};
+use {clap::Parser, env_logger, log::trace, std::ffi::OsString};
 
 mod search;
 
@@ -20,7 +15,7 @@ const DEFAULT_GITHUB_REPOSITORIES_DIRECTORY: &str = "github";
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct CLIArguments {
-    #[clap(short = 'p', long = "prefix", default_value = "flutt")]
+    #[clap(short = 'p', long = "prefix", default_value = "flutter_")]
     prefix: String,
     #[clap(short = 'o', long = "owner", default_value = "flutter")]
     owner: String,
@@ -30,47 +25,39 @@ struct CLIArguments {
     ignore_case: bool,
     #[clap(short = 'u', long = "github-username", default_value = "RobinCombrink")]
     github_username: String,
+    #[clap(short = 'l', long = "local-search-directory", default_value = DEFAULT_FILES_TO_SEARCH_DIRECTORY)]
+    local_search_directory: PathBuf,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    use std::time::Instant;
-    let now = Instant::now();
-    {
-        //TODO: Extract to CLI argument
-        let path = Path::new(DEFAULT_FILES_TO_SEARCH_DIRECTORY);
-        //TODO: Extract to CLI argument
-        let github_directory = DEFAULT_GITHUB_REPOSITORIES_DIRECTORY;
-        //TODO: Extract to CLI argument
-        let args: CLIArguments = CLIArguments::parse();
+    let args: CLIArguments = CLIArguments::parse();
 
-        setup_logging();
-        trace!("Logging setup successful");
+    setup_logging();
 
-        let authentication = GitHubCliAuthentication::new(args.github_username)?;
+    let authentication = GitHubCliAuthentication::new(args.github_username)?;
 
-        let github_searcher = GithubSearcher::new(
-                authentication,
-            path.to_path_buf().join(github_directory),
-                args.owner,
-        )?;
+    let local_search_directory_github = args
+        .local_search_directory
+        .join(DEFAULT_GITHUB_REPOSITORIES_DIRECTORY);
 
-        let searcher = Searcher::new(github_searcher, args.ignore_case, &args.search_term)?;
+    let github_updater = GithubSearcher::new(
+        authentication,
+        local_search_directory_github.clone(),
+        args.owner,
+    )?;
 
-        let _ = fs::create_dir_all(path.join(github_directory));
+    let _ = fs::create_dir_all(local_search_directory_github.clone());
 
-        searcher
-            .github
-            .update_repositories(&args.prefix)
-            .await?
-            .into_iter()
-            .collect::<Result<Vec<()>>>()?;
+    github_updater
+        .update_repositories(&args.prefix)
+        .await?
+        .into_iter()
+        .collect::<Result<Vec<()>>>()?;
 
-        // searcher.search(&[path.as_os_str().to_owned()])?;
-    }
-    let elapsed = now.elapsed();
-    println!("Elapsed: {:.2?}", elapsed);
-    Ok(())
+    let searcher = Searcher::new(args.ignore_case, &args.search_term)?;
+
+    searcher.search(&[local_search_directory_github.as_os_str().to_owned()])
 }
 
 fn setup_logging() {

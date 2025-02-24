@@ -1,10 +1,5 @@
-use std::fmt::Debug;
-
 use anyhow::Result;
-use git_cloner::github_authentication::authentication::Authentication;
 use grep::regex::{RegexMatcher, RegexMatcherBuilder};
-
-use self::github::GithubSearcher;
 
 use {
     grep::{
@@ -21,28 +16,23 @@ use {
 pub mod github;
 
 #[derive(Debug)]
-pub struct Searcher<T: Authentication> {
-    pub github: GithubSearcher<T>,
+pub struct Searcher {
     pub matcher: RegexMatcher,
 }
 
-impl<T: Authentication> Searcher<T> {
-    pub fn new(
-        github: GithubSearcher<T>,
-        case_insensitive: bool,
-        pattern: &OsString,
-    ) -> Result<Self> {
+impl Searcher {
+    pub fn new(case_insensitive: bool, pattern: &OsString) -> Result<Self> {
         let pattern = cli::pattern_from_os(pattern)?;
         let matcher = RegexMatcherBuilder::new()
             .line_terminator(Some(b'\n'))
             .case_insensitive(case_insensitive)
             .build(pattern)?;
 
-        Ok(Self { github, matcher })
+        Ok(Self { matcher })
     }
 }
 
-impl<T: Authentication> Searcher<T> {
+impl Searcher {
     //Original inspiration: https://github.com/BurntSushi/ripgrep/blob/master/crates/grep/examples/simplegrep.rs
     pub fn search(&self, paths: &[OsString]) -> Result<()> {
         let mut searcher = SearcherBuilder::new()
