@@ -13,12 +13,7 @@ const DEFAULT_FILES_TO_SEARCH_DIRECTORY: &str = "FilesToSearch";
 const DEFAULT_GITHUB_REPOSITORIES_DIRECTORY: &str = "github";
 
 #[derive(Parser, Debug)]
-#[command(
-    author,
-    version,
-    about = "Quickly search through a number of repositories hosted on github"
-)]
-struct CLIArguments {
+struct SearchArguments {
     #[clap(short = 'p', long, default_value = "flutter_")]
     repository_filter_prefix: String,
     #[clap(short = 'o', long, default_value = "flutter")]
@@ -35,12 +30,42 @@ struct CLIArguments {
     local_search_directory: PathBuf,
 }
 
+#[derive(Parser, Debug)]
+struct ClearArguments {
+    #[clap(short = 'l', long, default_value = DEFAULT_FILES_TO_SEARCH_DIRECTORY)]
+    local_search_directory: PathBuf,
+}
+
+#[derive(Parser, Debug)]
+#[command(
+    author,
+    version,
+    about = "Quickly search through a number of repositories hosted on github"
+)]
+enum CliCommand {
+    #[clap(about = "Clone a set of github repositories and then search through the context")]
+    Search(SearchArguments),
+    #[clap(about = "Delete all files and directories recursively from the provided directory")]
+    Clear(ClearArguments),
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
-    let args: CLIArguments = CLIArguments::parse();
+    let args: CliCommand = CliCommand::parse();
 
     setup_logging();
 
+    match args {
+        CliCommand::Search(search_arguments) => search(search_arguments).await,
+        CliCommand::Clear(clear_arguments) => clear(clear_arguments),
+    }
+}
+
+fn clear(args: ClearArguments) -> Result<()> {
+    Ok(fs::remove_dir_all(args.local_search_directory)?)
+}
+
+async fn search(args: SearchArguments) -> Result<()> {
     let authentication = GitHubCliAuthentication::new(args.github_username)?;
 
     let local_search_directory_github = args
