@@ -79,7 +79,7 @@ async fn search(args: SearchArguments) -> Result<()> {
         args.github_organisation,
     )?;
 
-    let _ = fs::create_dir_all(local_search_directory_github.clone());
+    fs::create_dir_all(local_search_directory_github.clone())?;
 
     github_updater
         .update_repositories(&args.repository_filter_prefix)
