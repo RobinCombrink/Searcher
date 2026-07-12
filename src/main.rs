@@ -5,7 +5,7 @@ use anyhow::Result;
 use git_cloner::github_authentication::authentication::GitHubCliAuthentication;
 use std::io::Write;
 
-use {clap::Parser, env_logger, std::ffi::OsString};
+use {clap::Parser, std::ffi::OsString};
 
 mod search;
 

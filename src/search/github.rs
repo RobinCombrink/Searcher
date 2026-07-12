@@ -92,6 +92,6 @@ impl<T: Authentication> GithubSearcher<T> {
             .await
             .with_context(|| format!("Failed to list repositories for organisation: {owner}"))?;
         let results = octocrab_instance.all_pages(repo_page).await?;
-        return Ok(results);
+        Ok(results)
     }
 }

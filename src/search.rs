@@ -72,6 +72,6 @@ impl Searcher {
                 }
             }
         }
-        return Ok(());
+        Ok(())
     }
 }
