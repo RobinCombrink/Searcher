@@ -2,25 +2,26 @@ use std::{fs, path::PathBuf};
 
 use anyhow::{Context, Result};
 use git_cloner::github::{GitClone, GitCloner};
-use git_cloner::github_authentication::authentication::Authentication;
+use git_cloner::github_authentication::GitHubToken;
 use octocrab::models::Repository;
 
 #[derive(Debug)]
-pub struct GithubSearcher<T: Authentication> {
-    pub cloner: GitCloner<T>,
+pub struct GithubSearcher {
+    pub cloner: GitCloner,
     pub branches: Vec<String>,
     pub owner: String,
 }
 
-impl<T: Authentication> GithubSearcher<T> {
+impl GithubSearcher {
     pub fn new(
-        authentication: T,
+        account: String,
+        token: GitHubToken,
         repositories_directory_path: PathBuf,
         branches: Vec<String>,
         owner: String,
     ) -> Result<Self> {
         let _ = fs::create_dir_all(&repositories_directory_path);
-        let cloner = GitCloner::new(authentication, repositories_directory_path)?;
+        let cloner = GitCloner::new(account, token, repositories_directory_path)?;
         Ok(Self {
             cloner,
             branches,

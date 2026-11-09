@@ -2,7 +2,6 @@ use std::{fs, path::PathBuf};
 
 use crate::search::{github::GithubSearcher, Searcher};
 use anyhow::Result;
-use git_cloner::github_authentication::authentication::GitHubCliAuthentication;
 use std::io::Write;
 
 use {clap::Parser, std::ffi::OsString};
@@ -66,14 +65,15 @@ fn clear(args: ClearArguments) -> Result<()> {
 }
 
 async fn search(args: SearchArguments) -> Result<()> {
-    let authentication = GitHubCliAuthentication::new(args.github_username)?;
+    let token = git_cloner::github_authentication::cli::token_for(&args.github_username)?;
 
     let local_search_directory_github = args
         .local_search_directory
         .join(DEFAULT_GITHUB_REPOSITORIES_DIRECTORY);
 
     let github_updater = GithubSearcher::new(
-        authentication,
+        args.github_username,
+        token,
         local_search_directory_github.clone(),
         args.branches,
         args.github_organisation,
