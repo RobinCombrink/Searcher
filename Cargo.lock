@@ -486,7 +486,7 @@ dependencies = [
 [[package]]
 name = "git_cloner"
 version = "0.1.0"
-source = "git+https://github.com/RobinCombrink/GitCloner?branch=main#94860df7a910d482463258131b5365915466bd7e"
+source = "git+https://github.com/RobinCombrink/GitCloner?branch=main#dd9712cb935689b01b72306f73fe0c02770fa3cb"
 dependencies = [
  "anyhow",
  "git2",
@@ -500,7 +500,7 @@ dependencies = [
 [[package]]
 name = "github_authentication"
 version = "0.1.0"
-source = "git+https://github.com/RobinCombrink/GitHubAuthentication#387f6b147ca41f4e3be250c954c6a133dd254a9a"
+source = "git+https://github.com/RobinCombrink/GitHubAuthentication?branch=main#387f6b147ca41f4e3be250c954c6a133dd254a9a"
 dependencies = [
  "secrecy",
  "thiserror",
