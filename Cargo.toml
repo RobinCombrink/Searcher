@@ -14,7 +14,7 @@ futures = "0.3.31"
 git_cloner = { git = "https://github.com/RobinCombrink/GitCloner", branch = "main" }
 grep = "0.3.2"
 log = "0.4.27"
-octocrab = "0.44.1"
+octocrab = "0.54.9"
 termcolor = "1.4.1"
 tokio = { version = "1.45.1", features = ["full"] }
 walkdir = "2.5.0"
