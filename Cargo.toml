@@ -12,7 +12,7 @@ clap = { version = "4.5.40", features = ["derive", "string"] }
 env_logger = "0.11.8"
 futures = "0.3.31"
 git_cloner = { git = "https://github.com/RobinCombrink/GitCloner", branch = "main" }
-grep = "0.3.2"
+grep = "0.4.1"
 log = "0.4.27"
 octocrab = "0.44.1"
 termcolor = "1.4.1"
